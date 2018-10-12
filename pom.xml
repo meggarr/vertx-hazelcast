@@ -9,7 +9,7 @@
   </parent>
 
   <artifactId>vertx-hazelcast</artifactId>
-  <version>3.5.4</version>
+  <version>3.5.4-calix1</version>
 
   <name>Vert.x Hazelcast Cluster Manager</name>
 
@@ -74,7 +74,7 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-web</artifactId>
-      <version>${project.version}</version>
+      <version>${stack.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
@@ -102,7 +102,7 @@
                 <arg>-Adocgen.output=${asciidoc.dir}/$lang</arg>
                 <arg>-Amaven.groupId=${project.groupId}</arg>
                 <arg>-Amaven.artifactId=${project.artifactId}</arg>
-                <arg>-Amaven.version=${project.version}</arg>
+                <arg>-Amaven.version=${stack.version}</arg>
                 <arg>-Ahazelcast.version=${hazelcast.version}</arg>
               </compilerArgs>
             </configuration>
@@ -131,7 +131,7 @@
           <systemPropertyVariables>
             <io.netty.leakDetectionLevel>PARANOID</io.netty.leakDetectionLevel>
             <buildDirectory>${project.build.directory}</buildDirectory>
-            <vertxVersion>${project.version}</vertxVersion>
+            <vertxVersion>${stack.version}</vertxVersion>
             <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
           </systemPropertyVariables>
           <!-- Needs to be small enough to run in a EC2 1.7GB small instance -->
@@ -210,7 +210,7 @@
               <systemPropertyVariables>
                 <io.netty.leakDetectionLevel>PARANOID</io.netty.leakDetectionLevel>
                 <buildDirectory>${project.build.directory}</buildDirectory>
-                <vertxVersion>${project.version}</vertxVersion>
+                <vertxVersion>${stack.version}</vertxVersion>
                 <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
               </systemPropertyVariables>
               <!-- Needs to be small enough to run in a EC2 1.7GB small instance -->
@@ -224,5 +224,23 @@
       </build>
     </profile>
   </profiles>
+
+  <distributionManagement>
+    <repository>
+      <id>nexus</id>
+      <name>Calix Releases Repository</name>
+      <url>http://nexus.calix.local/nexus/content/repositories/sxa-releases/</url>
+    </repository>
+    <snapshotRepository>
+      <id>nexus</id>
+      <name>Calix Snapshots Repository</name>
+      <url>http://nexus.calix.local/nexus/content/repositories/sxa-snapshots/</url>
+    </snapshotRepository>
+    <site>
+      <id>nexus</id>
+      <name>Calix Site Repository</name>
+      <url>http://nexus.calix.local/nexus/content/repositories/sxa-site/</url>
+    </site>
+  </distributionManagement>
 
 </project>
