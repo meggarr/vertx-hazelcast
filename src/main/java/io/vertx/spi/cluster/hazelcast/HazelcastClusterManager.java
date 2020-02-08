@@ -18,10 +18,7 @@ package io.vertx.spi.cluster.hazelcast;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.core.*;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
-import io.vertx.core.VertxException;
+import io.vertx.core.*;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.shareddata.AsyncMap;
@@ -63,8 +60,10 @@ public class HazelcastClusterManager implements ClusterManager, MembershipListen
    * and {@link HazelcastCounter}.
    */
   private static final String OPTION_USE_HZ_ASYNC_API = "vertx.hazelcast.async-api";
+  private static final String OPTION_HZ_GET_LOCK_MAX_TIMEOUT = "vertx.hazelcast.get-lock-max-timeout";
 
   private static final boolean USE_HZ_ASYNC_API = Boolean.getBoolean(OPTION_USE_HZ_ASYNC_API);
+  private static final long GET_LOCK_MAX_TIMEOUT = Long.getLong(OPTION_HZ_GET_LOCK_MAX_TIMEOUT, 5000);
 
   private Vertx vertx;
 
@@ -198,26 +197,32 @@ public class HazelcastClusterManager implements ClusterManager, MembershipListen
 
   @Override
   public void getLockWithTimeout(String name, long timeout, Handler<AsyncResult<Lock>> resultHandler) {
-    vertx.executeBlocking(fut -> {
+    long start = System.nanoTime();
+    vertx.<Lock>executeBlocking(fut -> {
       ISemaphore iSemaphore = hazelcast.getSemaphore(LOCK_SEMAPHORE_PREFIX + name);
       boolean locked = false;
-      long remaining = timeout;
-      do {
-        long start = System.nanoTime();
-        try {
-          locked = iSemaphore.tryAcquire(remaining > 5000 ? 5000 : remaining, TimeUnit.MILLISECONDS);
-          Thread.sleep(1);
-        } catch (InterruptedException e) {
-          // OK continue
-        }
-        remaining = remaining - MILLISECONDS.convert(System.nanoTime() - start, NANOSECONDS);
-      } while (!locked && remaining > 0);
+      try {
+        locked = iSemaphore.tryAcquire(Math.min(timeout, GET_LOCK_MAX_TIMEOUT), TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        // OK continue
+      }
       if (locked) {
         fut.complete(new HazelcastLock(iSemaphore));
       } else {
         throw new VertxException("Timed out waiting to get lock " + name);
       }
-    }, false, resultHandler);
+    }, false, lr -> {
+      if (lr.succeeded()) {
+        resultHandler.handle(lr);
+      } else {
+        long remaining = timeout - MILLISECONDS.convert(System.nanoTime() - start, NANOSECONDS);
+        if (remaining > 0) {
+          getLockWithTimeout(name, remaining, resultHandler);
+        } else {
+          resultHandler.handle(Future.failedFuture(lr.cause()));
+        }
+      }
+    });
   }
 
   @Override
@@ -323,7 +328,7 @@ public class HazelcastClusterManager implements ClusterManager, MembershipListen
     }
     multimaps.forEach(HazelcastAsyncMultiMap::clearCache);
     // Safeguard to make sure members list is OK after a partition merge
-    if(lifecycleEvent.getState() == LifecycleEvent.LifecycleState.MERGED) {
+    if (lifecycleEvent.getState() == LifecycleEvent.LifecycleState.MERGED) {
       final List<String> currentNodes = getNodes();
       Set<String> newNodes = new HashSet<>(currentNodes);
       newNodes.removeAll(nodeIds);
