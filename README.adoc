@@ -1,14 +1,29 @@
 = Hazelcast Cluster Manager
 
-image:https://vertx.ci.cloudbees.com/buildStatus/icon?job=vert.x3-hazelcast["Build Status",link="https://vertx.ci.cloudbees.com/view/vert.x-3/job/vert.x3-hazelcast/"]
+[![Build Status](https://travis-ci.org/vert-x3/vertx-hazelcast.svg?branch=master)](https://travis-ci.org/vert-x3/vertx-hazelcast)
 
 This is a cluster manager implementation for Vert.x that uses http://hazelcast.com[Hazelcast].
 
 It is the default cluster manager in the Vert.x distribution, but it can be replaced with another implementation as Vert.x
 cluster managers are pluggable.
 
-Please see the in-source asciidoc documentation or the main documentation on the web-site for a full description
-of this component:
+Please see the main documentation on the web-site for a full description:
 
-* link:http://vertx.io/docs/vertx-hazelcast/java/[web-site docs]
-* link:src/main/asciidoc/java/index.adoc[in-source docs]
+* https://vertx.io/docs/vertx-hazelcast/java/[Web-site documentation]
+
+== Running tests
+
+To run the clustering test suite, open a terminal and type:
+
+[source,shell]
+----
+mvn test
+----
+
+There are additional integration tests in this project.
+To run these tests as well:
+
+[source,shell]
+----
+mvn verify
+----

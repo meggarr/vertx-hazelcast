@@ -14,23 +14,25 @@
  * under the License.
  */
 
-package io.vertx.ext.web.sstore;
+package io.vertx.servicediscovery.impl;
 
-import io.vertx.Lifecycle;
 import io.vertx.LoggingTestWatcher;
 import io.vertx.core.Vertx;
-import io.vertx.core.spi.cluster.ClusterManager;
+import io.vertx.core.VertxOptions;
+import io.vertx.servicediscovery.ServiceDiscoveryOptions;
 import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager;
+import org.junit.Before;
 import org.junit.Rule;
 
 import java.math.BigInteger;
-import java.util.List;
 import java.util.Random;
+
+import static com.jayway.awaitility.Awaitility.await;
 
 /**
  * @author Thomas Segismont
  */
-public class HazelcastClusteredSessionHandlerTest extends ClusteredSessionHandlerTest {
+public class HazelcastDiscoveryImplClusteredTest extends DiscoveryImplTestBase {
 
   static {
     System.setProperty("hazelcast.wait.seconds.before.join", "0");
@@ -40,21 +42,18 @@ public class HazelcastClusteredSessionHandlerTest extends ClusteredSessionHandle
   @Rule
   public LoggingTestWatcher watchman = new LoggingTestWatcher();
 
-  @Override
-  public void setUp() throws Exception {
+  @Before
+  public void setUp() {
     Random random = new Random();
     System.setProperty("vertx.hazelcast.test.group.name", new BigInteger(128, random).toString(32));
     System.setProperty("vertx.hazelcast.test.group.password", new BigInteger(128, random).toString(32));
-    super.setUp();
-  }
 
-  @Override
-  protected ClusterManager getClusterManager() {
-    return new HazelcastClusterManager();
-  }
-
-  @Override
-  protected void closeClustered(List<Vertx> clustered) throws Exception {
-    Lifecycle.closeClustered(clustered);
+    VertxOptions options = new VertxOptions()
+      .setClusterManager(new HazelcastClusterManager());
+    Vertx.clusteredVertx(options, ar -> {
+      vertx = ar.result();
+    });
+    await().until(() -> vertx != null);
+    discovery = new DiscoveryImpl(vertx, new ServiceDiscoveryOptions());
   }
 }

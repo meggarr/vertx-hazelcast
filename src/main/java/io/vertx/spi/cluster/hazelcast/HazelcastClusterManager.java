@@ -17,13 +17,11 @@
 package io.vertx.spi.cluster.hazelcast;
 
 import com.hazelcast.config.Config;
-import com.hazelcast.config.XmlConfigBuilder;
 import com.hazelcast.core.*;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxException;
-import io.vertx.core.impl.ContextImpl;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.shareddata.AsyncMap;
@@ -37,10 +35,10 @@ import io.vertx.spi.cluster.hazelcast.impl.HazelcastAsyncMultiMap;
 import io.vertx.spi.cluster.hazelcast.impl.HazelcastInternalAsyncCounter;
 import io.vertx.spi.cluster.hazelcast.impl.HazelcastInternalAsyncMap;
 
-import java.io.*;
 import java.util.*;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -56,10 +54,6 @@ public class HazelcastClusterManager implements ClusterManager, MembershipListen
 
   private static final String LOCK_SEMAPHORE_PREFIX = "__vertx.";
   private static final String NODE_ID_ATTRIBUTE = "__vertx.nodeId";
-
-  // Hazelcast config file
-  private static final String DEFAULT_CONFIG_FILE = "default-cluster.xml";
-  private static final String CONFIG_FILE = "cluster.xml";
 
   /**
    * Set "vertx.hazelcast.async-api" system property to {@code true} to use the
@@ -354,49 +348,6 @@ public class HazelcastClusterManager implements ClusterManager, MembershipListen
   public void memberAttributeChanged(MemberAttributeEvent memberAttributeEvent) {
   }
 
-  private InputStream getConfigStream() {
-    InputStream is = getConfigStreamFromSystemProperty();
-    if (is == null) {
-      is = getConfigStreamFromClasspath(CONFIG_FILE, DEFAULT_CONFIG_FILE);
-    }
-    return is;
-  }
-
-  private InputStream getConfigStreamFromSystemProperty() {
-    String configProp = System.getProperty("vertx.hazelcast.config");
-    InputStream is = null;
-    if (configProp != null) {
-      if (configProp.startsWith("classpath:")) {
-        return getConfigStreamFromClasspath(configProp.substring("classpath:".length()), CONFIG_FILE);
-      }
-      File cfgFile = new File(configProp);
-      if (cfgFile.exists()) {
-        try {
-          is = new FileInputStream(cfgFile);
-        } catch (FileNotFoundException ex) {
-          log.warn("Failed to open file '" + configProp + "' defined in 'vertx.hazelcast.config'. Continuing " +
-            "classpath search for " + CONFIG_FILE);
-        }
-      }
-    }
-    return is;
-  }
-
-  private InputStream getConfigStreamFromClasspath(String configFile, String defaultConfig) {
-    InputStream is = null;
-    ClassLoader ctxClsLoader = Thread.currentThread().getContextClassLoader();
-    if (ctxClsLoader != null) {
-      is = ctxClsLoader.getResourceAsStream(configFile);
-    }
-    if (is == null) {
-      is = getClass().getClassLoader().getResourceAsStream(configFile);
-      if (is == null) {
-        is = getClass().getClassLoader().getResourceAsStream(defaultConfig);
-      }
-    }
-    return is;
-  }
-
   /**
    * Get the Hazelcast config.
    *
@@ -434,14 +385,7 @@ public class HazelcastClusterManager implements ClusterManager, MembershipListen
    * @return a config object
    */
   public Config loadConfig() {
-    Config cfg = null;
-    try (InputStream is = getConfigStream();
-         InputStream bis = new BufferedInputStream(is)) {
-      cfg = new XmlConfigBuilder(bis).build();
-    } catch (IOException ex) {
-      log.error("Failed to read config", ex);
-    }
-    return cfg;
+    return ConfigUtil.loadConfig();
   }
 
   public HazelcastInstance getHazelcastInstance() {
@@ -502,6 +446,7 @@ public class HazelcastClusterManager implements ClusterManager, MembershipListen
   private class HazelcastLock implements Lock {
 
     private final ISemaphore semaphore;
+    private final AtomicBoolean released = new AtomicBoolean();
 
     private HazelcastLock(ISemaphore semaphore) {
       this.semaphore = semaphore;
@@ -509,11 +454,12 @@ public class HazelcastClusterManager implements ClusterManager, MembershipListen
 
     @Override
     public void release() {
-      vertx.executeBlocking(future -> {
-        semaphore.release();
-        future.complete();
-      }, false, null);
+      if (released.compareAndSet(false, true)) {
+        vertx.executeBlocking(future -> {
+          semaphore.release();
+          future.complete();
+        }, false, null);
+      }
     }
   }
-
 }
