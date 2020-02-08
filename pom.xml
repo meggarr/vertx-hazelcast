@@ -9,7 +9,7 @@
   </parent>
 
   <artifactId>vertx-hazelcast</artifactId>
-  <version>3.5.4-calix1</version>
+  <version>3.5.4-calix2</version>
 
   <name>Vert.x Hazelcast Cluster Manager</name>
 
@@ -81,7 +81,7 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-web</artifactId>
-      <version>${project.version}</version>
+      <version>${stack.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
@@ -98,6 +98,7 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-service-discovery</artifactId>
+      <version>${stack.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
@@ -151,7 +152,7 @@
             <systemPropertyVariables>
               <io.netty.leakDetectionLevel>PARANOID</io.netty.leakDetectionLevel>
               <buildDirectory>${project.build.directory}</buildDirectory>
-              <vertxVersion>${project.version}</vertxVersion>
+              <vertxVersion>${stack.version}</vertxVersion>
               <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
               <vertx.logger-delegate-factory-class-name>io.vertx.core.logging.SLF4JLogDelegateFactory</vertx.logger-delegate-factory-class-name>
               <hazelcast.logging.type>slf4j</hazelcast.logging.type>
